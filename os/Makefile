@@ -12,7 +12,7 @@ endif
 
 # BOARD
 BOARD := qemu
-SBI ?= rustsbi
+SBI ?= default
 BOOTLOADER := ../bootloader/$(SBI)-$(BOARD).bin
 
 # KERNEL ENTRY
@@ -54,11 +54,19 @@ disasm-vim: kernel
 run: run-inner
 
 run-inner: build
+ifeq ($(SBI), default)
+	@qemu-system-riscv64 \
+		-machine virt \
+		-nographic \
+		-bios default \
+		-kernel $(KERNEL_ELF)
+else
 	@qemu-system-riscv64 \
 		-machine virt \
 		-nographic \
 		-bios $(BOOTLOADER) \
 		-device loader,file=$(KERNEL_BIN),addr=$(KERNEL_ENTRY_PA)
+endif
 
 debug: build
 	@tmux new-session -d \
