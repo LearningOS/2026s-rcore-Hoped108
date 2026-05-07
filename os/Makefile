@@ -12,8 +12,9 @@ endif
 
 # BOARD
 BOARD := qemu
-SBI ?= default
+SBI ?= rustsbi
 BOOTLOADER := ../bootloader/$(SBI)-$(BOARD).bin
+QEMU ?= $(HOME)/opt/qemu-7.0.0/bin/qemu-system-riscv64
 
 # KERNEL ENTRY
 KERNEL_ENTRY_PA := 0x80200000
@@ -55,13 +56,13 @@ run: run-inner
 
 run-inner: build
 ifeq ($(SBI), default)
-	@qemu-system-riscv64 \
+	@$(QEMU) \
 		-machine virt \
 		-nographic \
 		-bios default \
 		-kernel $(KERNEL_ELF)
 else
-	@qemu-system-riscv64 \
+	@$(QEMU) \
 		-machine virt \
 		-nographic \
 		-bios $(BOOTLOADER) \
@@ -70,12 +71,12 @@ endif
 
 debug: build
 	@tmux new-session -d \
-		"qemu-system-riscv64 -machine virt -nographic -bios $(BOOTLOADER) -device loader,file=$(KERNEL_BIN),addr=$(KERNEL_ENTRY_PA) -s -S" && \
+		"$(QEMU) -machine virt -nographic -bios $(BOOTLOADER) -device loader,file=$(KERNEL_BIN),addr=$(KERNEL_ENTRY_PA) -s -S" && \
 		tmux split-window -h "riscv64-unknown-elf-gdb -ex 'file $(KERNEL_ELF)' -ex 'set arch riscv:rv64' -ex 'target remote localhost:1234'" && \
 		tmux -2 attach-session -d
 
 gdbserver: build
-	@qemu-system-riscv64 -machine virt -nographic -bios $(BOOTLOADER) -device loader,file=$(KERNEL_BIN),addr=$(KERNEL_ENTRY_PA) -s -S
+	@$(QEMU) -machine virt -nographic -bios $(BOOTLOADER) -device loader,file=$(KERNEL_BIN),addr=$(KERNEL_ENTRY_PA) -s -S
 
 gdbclient:
 	@riscv64-unknown-elf-gdb -ex 'file $(KERNEL_ELF)' -ex 'set arch riscv:rv64' -ex 'target remote localhost:1234'
