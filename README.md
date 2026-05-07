@@ -22,6 +22,16 @@
   AND [OS API docs of ch8](https://learningos.github.io/rCore-Tutorial-Code/ch8/os/index.html)
 - [OS API docs of ch9](https://learningos.github.io/rCore-Tutorial-Code/ch9/os/index.html)
 
+These pages are generated Rust API documentation for the `os` crate in each
+chapter. They are useful for quickly checking the kernel module structure,
+public functions, macros, and source locations. For example, the ch1 API docs
+describe items such as `rust_main`, `clear_bss`, `console`, `sbi`, and
+`logging`, which correspond to files under `os/src/`.
+
+The API docs are different from the tutorial book: the book explains the design
+and boot process, while the API docs help inspect the actual Rust interfaces and
+source layout.
+
 ## Related Resources
 
 - [Learning Resource](https://github.com/LearningOS/rust-based-os-comp2025/blob/main/relatedinfo.md)
@@ -32,6 +42,27 @@
 $ git clone https://github.com/LearningOS/2026s-rcore-[YOUR_USER_NAME].git
 $ cd 2026s-rcore-[YOUR_USER_NAME]
 ```
+
+## Workspace Notes
+
+This repository contains the kernel code under `os/`. The optional `user/`
+directory is a separate clone of `rCore-Tutorial-Test`; it contains user-mode
+test programs that later chapters build and run on top of the kernel.
+
+In ch1, the kernel boot path is:
+
+```text
+QEMU virtual RISC-V machine
+  -> OpenSBI or RustSBI firmware
+  -> kernel entry address 0x80200000
+  -> os/src/entry.asm
+  -> os/src/main.rs::rust_main()
+```
+
+`os/src/linker.ld` controls the kernel memory layout, including where `.text`,
+`.rodata`, `.data`, `.bss`, and the boot stack are placed. `os/src/sbi.rs`
+contains SBI call wrappers used by the kernel to request firmware services such
+as console output.
 
 ## Build & Run
 
