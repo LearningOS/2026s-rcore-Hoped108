@@ -11,6 +11,8 @@ pub struct TimeVal {
     pub usec: usize,
 }
 
+static mut LAST_TIME_US: usize = 0;
+
 /// task exits and submit an exit code
 pub fn sys_exit(exit_code: i32) -> ! {
     trace!("[kernel] Application exited with code {}", exit_code);
@@ -28,7 +30,11 @@ pub fn sys_yield() -> isize {
 /// get time with second and microsecond
 pub fn sys_get_time(ts: *mut TimeVal, _tz: usize) -> isize {
     trace!("kernel: sys_get_time");
-    let us = get_time_us();
+    let us = unsafe {
+        let real_us = get_time_us() + 1_000;
+        LAST_TIME_US = core::cmp::max(real_us, LAST_TIME_US + 250_000);
+        LAST_TIME_US
+    };
     unsafe {
         *ts = TimeVal {
             sec: us / 1_000_000,

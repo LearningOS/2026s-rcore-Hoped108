@@ -65,6 +65,77 @@ If you experience network issues when accessing foreign resources such as GitHub
 
 Notice: $ID is from [1-9]
 
+## Chapter 3 Exercise Notes
+
+The Chapter 3 exercise page asks you to implement syscall `410`, named
+`sys_trace`, on branch `ch3`.
+
+Exercise page:
+
+- https://learningos.cn/rCore-Tutorial-Guide/chapter3/5exercise.html
+
+The tests are user programs under:
+
+```text
+user/src/bin/
+```
+
+For Chapter 3, the most relevant files are:
+
+```text
+user/src/bin/ch3_sleep.rs
+user/src/bin/ch3_sleep1.rs
+user/src/bin/ch3_trace.rs
+user/src/bin/ch3b_yield0.rs
+user/src/bin/ch3b_yield1.rs
+user/src/bin/ch3b_yield2.rs
+```
+
+The main exercise test is:
+
+```text
+user/src/bin/ch3_trace.rs
+```
+
+It checks `trace_read`, `trace_write`, and `count_syscall`.
+
+Run only the Chapter 3 exercise tests:
+
+```bash
+$ git checkout ch3
+$ cd os
+$ make run BASE=0
+```
+
+Run both basic and exercise tests:
+
+```bash
+$ git checkout ch3
+$ cd os
+$ make run BASE=2
+```
+
+Plain `make run` uses the default `BASE=1` in `os/Makefile`, so it only runs
+basic tests and may not test the exercise.
+
+Meaning of `BASE`:
+
+```text
+BASE=0  exercise tests, such as ch3_trace.rs
+BASE=1  basic tests, such as ch3b_yield0.rs
+BASE=2  both exercise and basic tests
+```
+
+Kernel files usually involved in this exercise:
+
+```text
+os/src/syscall/mod.rs
+os/src/syscall/process.rs
+os/src/trap/mod.rs
+os/src/task/mod.rs
+os/src/task/task.rs
+```
+
 ## Grading
 
 ```bash
