@@ -14,9 +14,11 @@ mod switch;
 #[allow(clippy::module_inception)]
 mod task;
 
+use crate::config::MAX_SYSCALL_NUM;
 use crate::loader::{get_app_data, get_num_app};
 use crate::sync::UPSafeCell;
 use crate::trap::TrapContext;
+use crate::mm::{MapPermission,VirtAddr};
 use alloc::vec::Vec;
 use lazy_static::*;
 use switch::__switch;
@@ -128,9 +130,23 @@ impl TaskManager {
 
     /// Change the current 'Running' task's program break
     pub fn change_current_program_brk(&self, size: i32) -> Option<usize> {
-        let mut inner = self.inner.exclusive_access();
+        let mut inner: core::cell::RefMut<'_, TaskManagerInner> = self.inner.exclusive_access();
         let cur = inner.current_task;
         inner.tasks[cur].change_program_brk(size)
+    }
+
+    /// mmap base on the va
+    pub fn mmap(&self, start_va: VirtAddr, end_va: VirtAddr, permission: MapPermission) -> bool{
+        let mut inner:core::cell::RefMut<'_, TaskManagerInner> = self.inner.exclusive_access();
+        let cur = inner.current_task;
+        inner.tasks[cur].mmap(start_va,end_va,permission)
+    }
+
+    /// munmap the frame area
+    pub fn munmap(&self, start_va: VirtAddr, end_va: VirtAddr) -> bool {
+        let mut inner:core::cell::RefMut<'_, TaskManagerInner> = self.inner.exclusive_access();
+        let cur = inner.current_task;
+        inner.tasks[cur].munmap(start_va,end_va)
     }
 
     /// Switch current `Running` task to the task we have found,
@@ -152,6 +168,20 @@ impl TaskManager {
         } else {
             panic!("All applications completed!");
         }
+    }
+    fn current_syscall_time(&self, syscall_id: usize) -> Option<usize> {
+        if syscall_id <= MAX_SYSCALL_NUM {
+            let inner = self.inner.exclusive_access();
+            let cur = inner.current_task;
+            Some(inner.tasks[cur].syscall_times[syscall_id])
+        } else {
+            None
+        }
+    }
+    fn add_current_syscall_time(&self, syscall_id: usize) {
+        let mut inner = self.inner.exclusive_access();
+        let cur = inner.current_task;
+        inner.tasks[cur].syscall_times[syscall_id] += 1;
     }
 }
 
@@ -201,4 +231,24 @@ pub fn current_trap_cx() -> &'static mut TrapContext {
 /// Change the current 'Running' task's program break
 pub fn change_program_brk(size: i32) -> Option<usize> {
     TASK_MANAGER.change_current_program_brk(size)
+}
+
+/// Get the syscall call count of current task by syscall id.
+pub fn current_syscall_times(syscall_id: usize) -> Option<usize> {
+    TASK_MANAGER.current_syscall_time(syscall_id)
+}
+
+/// Add the syscall times
+pub fn add_current_syscall_time(syscall_id: usize) {
+    TASK_MANAGER.add_current_syscall_time(syscall_id);
+}
+
+/// Mmap for the va
+pub fn mmap(start_va: VirtAddr,end_va: VirtAddr, permission: MapPermission) -> bool{
+    TASK_MANAGER.mmap(start_va, end_va, permission)
+}
+
+/// Munmap for the matched frame area
+pub fn munmap(start_va: VirtAddr, end_va: VirtAddr) -> bool {
+    TASK_MANAGER.munmap(start_va, end_va)
 }

@@ -1,12 +1,12 @@
 //! Implementation of physical and virtual address and page number.
 use super::PageTableEntry;
-use crate::config::{PAGE_SIZE, PAGE_SIZE_BITS};
+use crate::config::{PAGE_SIZE, PAGE_SIZE_BITS};//usize = 0x1000 usize = 0xc
 use core::fmt::{self, Debug, Formatter};
 /// physical address
 const PA_WIDTH_SV39: usize = 56;
 const VA_WIDTH_SV39: usize = 39;
-const PPN_WIDTH_SV39: usize = PA_WIDTH_SV39 - PAGE_SIZE_BITS;
-const VPN_WIDTH_SV39: usize = VA_WIDTH_SV39 - PAGE_SIZE_BITS;
+const PPN_WIDTH_SV39: usize = PA_WIDTH_SV39 - PAGE_SIZE_BITS; //56 - 12 = 44
+const VPN_WIDTH_SV39: usize = VA_WIDTH_SV39 - PAGE_SIZE_BITS; //39 - 12 = 27
 
 /// physical address
 #[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
@@ -25,7 +25,7 @@ pub struct VirtPageNum(pub usize);
 
 impl Debug for VirtAddr {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        f.write_fmt(format_args!("VA:{:#x}", self.0))
+        f.write_fmt(format_args!("VA:{:#x}", self.0)) //self.0 => VirtAddr(pub usize) {:#x} => hexadecimal
     }
 }
 impl Debug for VirtPageNum {
@@ -46,7 +46,7 @@ impl Debug for PhysPageNum {
 
 /// T: {PhysAddr, VirtAddr, PhysPageNum, VirtPageNum}
 /// T -> usize: T.0
-/// usize -> T: usize.into()
+/// usize -> T: usize.into() implement the from and into
 
 impl From<usize> for PhysAddr {
     fn from(v: usize) -> Self {
@@ -60,7 +60,7 @@ impl From<usize> for PhysPageNum {
 }
 impl From<usize> for VirtAddr {
     fn from(v: usize) -> Self {
-        Self(v & ((1 << VA_WIDTH_SV39) - 1))
+        Self(v & ((1 << VA_WIDTH_SV39) - 1)) //save the low 39 bits,set others 0 
     }
 }
 impl From<usize> for VirtPageNum {
@@ -106,7 +106,7 @@ impl VirtAddr {
 
     /// Get the page offset of virtual address
     pub fn page_offset(&self) -> usize {
-        self.0 & (PAGE_SIZE - 1)
+        self.0 & (PAGE_SIZE - 1) //save low 12 bits
     }
 
     /// Check if the virtual address is aligned by page size

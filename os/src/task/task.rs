@@ -1,6 +1,6 @@
 //! Types related to task management
 use super::TaskContext;
-use crate::config::TRAP_CONTEXT_BASE;
+use crate::config::{MAX_SYSCALL_NUM, TRAP_CONTEXT_BASE};
 use crate::mm::{
     kernel_stack_position, MapPermission, MemorySet, PhysPageNum, VirtAddr, KERNEL_SPACE,
 };
@@ -28,6 +28,9 @@ pub struct TaskControlBlock {
 
     /// Program break
     pub program_brk: usize,
+
+    ///syscall times
+    pub syscall_times: [usize; MAX_SYSCALL_NUM],
 }
 
 impl TaskControlBlock {
@@ -63,6 +66,7 @@ impl TaskControlBlock {
             base_size: user_sp,
             heap_bottom: user_sp,
             program_brk: user_sp,
+            syscall_times: [0; MAX_SYSCALL_NUM],
         };
         // prepare TrapContext in user space
         let trap_cx = task_control_block.get_trap_cx();
@@ -95,6 +99,18 @@ impl TaskControlBlock {
         } else {
             None
         }
+    }
+    ///base on the va to mmap
+    pub fn mmap(&mut self, start_va: VirtAddr, end_va: VirtAddr, permission: MapPermission) -> bool{
+        if !self.memory_set.check_mapped(start_va, end_va) {
+            return false;
+        }
+        self.memory_set.insert_framed_area(start_va, end_va, permission);
+        true
+    }
+    /// remove the frame
+    pub fn munmap(&mut self,start_va: VirtAddr,end_va: VirtAddr) -> bool {
+        self.memory_set.remove_framed_are(start_va.floor(), end_va.ceil())
     }
 }
 

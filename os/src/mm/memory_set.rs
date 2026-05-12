@@ -58,6 +58,8 @@ impl MemorySet {
         end_va: VirtAddr,
         permission: MapPermission,
     ) {
+        // println!("check_mapped start_va={:?}, end_va={:?}", start_va, end_va);
+
         self.push(
             MapArea::new(start_va, end_va, MapType::Framed, permission),
             None,
@@ -229,9 +231,41 @@ impl MemorySet {
             asm!("sfence.vma");
         }
     }
+    /// Check the va has been mapped
+    pub fn check_mapped(&self, start_va: VirtAddr, end_va: VirtAddr) -> bool {
+        let start_vpn = start_va.floor();
+        let end_vpn = end_va.ceil();
+
+        // println!("check_mapped start_vpn={:?}, end_vpn={:?}", start_vpn, end_vpn);
+
+        for vpn in VPNRange::new(start_vpn, end_vpn) {
+            let pte = self.translate(vpn);
+            // println!("  vpn={:?}, mapped={}", vpn, pte.is_some());
+            if let Some(pte_) = pte {
+                if pte_.is_valid() {
+                    return false;
+                }
+            }
+        }
+
+        true
+    }
     /// Translate a virtual page number to a page table entry
     pub fn translate(&self, vpn: VirtPageNum) -> Option<PageTableEntry> {
         self.page_table.translate(vpn)
+    }
+    /// Remove the framed area match the range
+    pub fn remove_framed_are(&mut self, start_vpn: VirtPageNum, end_vpn: VirtPageNum) -> bool {
+        let pos = self.areas.iter().position(|area| {
+            area.vpn_range.get_start() == start_vpn && area.vpn_range.get_end() == end_vpn
+        });
+        if let Some(index) = pos {
+            let mut area = self.areas.remove(index); // would return the remove one
+            area.unmap(&mut self.page_table);
+            true
+        } else {
+            false
+        }
     }
     /// shrink the area to new_end
     #[allow(unused)]
