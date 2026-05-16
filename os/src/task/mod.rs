@@ -23,6 +23,7 @@ mod switch;
 mod task;
 
 use crate::fs::{open_file, OpenFlags};
+use crate::config::BIG_STRIDE;
 use alloc::sync::Arc;
 pub use context::TaskContext;
 use lazy_static::*;
@@ -46,6 +47,7 @@ pub fn suspend_current_and_run_next() {
     let task_cx_ptr = &mut task_inner.task_cx as *mut TaskContext;
     // Change status to Ready
     task_inner.task_status = TaskStatus::Ready;
+    task_inner.stride += BIG_STRIDE / task_inner.priority;
     drop(task_inner);
     // ---- release current PCB
 

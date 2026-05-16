@@ -3,7 +3,7 @@ use super::TaskContext;
 use super::{kstack_alloc, pid_alloc, KernelStack, PidHandle};
 use crate::config::TRAP_CONTEXT_BASE;
 use crate::fs::{File, Stdin, Stdout};
-use crate::mm::{MemorySet, PhysPageNum, VirtAddr, KERNEL_SPACE};
+use crate::mm::{MemorySet, PhysPageNum, VirtAddr, KERNEL_SPACE, MapPermission};
 use crate::sync::UPSafeCell;
 use crate::trap::{trap_handler, TrapContext};
 use alloc::sync::{Arc, Weak};
@@ -71,6 +71,12 @@ pub struct TaskControlBlockInner {
 
     /// Program break
     pub program_brk: usize,
+
+    /// Program priority
+    pub priority: usize,
+    
+    /// Program stride
+    pub stride: usize,
 }
 
 impl TaskControlBlockInner {
@@ -93,6 +99,16 @@ impl TaskControlBlockInner {
             self.fd_table.push(None);
             self.fd_table.len() - 1
         }
+    }
+    pub fn mmap(&mut self,start_va: VirtAddr, end_va: VirtAddr, permission: MapPermission)  -> bool{
+        if self.memory_set.checked_mapped(start_va, end_va) {
+            return false;
+        }
+        self.memory_set.insert_framed_area(start_va, end_va, permission);
+        true
+    }
+    pub fn munmap(&mut self, start_va: VirtAddr,end_va: VirtAddr) -> bool{
+        self.memory_set.remove_framed_area(start_va.floor(), end_va.ceil())
     }
 }
 
@@ -135,6 +151,8 @@ impl TaskControlBlock {
                     ],
                     heap_bottom: user_sp,
                     program_brk: user_sp,
+                    priority: 16,
+                    stride: 0,
                 })
             },
         };
@@ -216,6 +234,8 @@ impl TaskControlBlock {
                     fd_table: new_fd_table,
                     heap_bottom: parent_inner.heap_bottom,
                     program_brk: parent_inner.program_brk,
+                    priority: 16,
+                    stride: 0,
                 })
             },
         });

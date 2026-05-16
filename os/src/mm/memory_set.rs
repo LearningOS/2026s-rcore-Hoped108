@@ -78,6 +78,19 @@ impl MemorySet {
             self.areas.remove(idx);
         }
     }
+    /// remove a framed area with start_vpn and end_vpn
+    pub fn remove_framed_area(&mut self, start_vpn: VirtPageNum, end_vpn: VirtPageNum) -> bool{
+        let pos = self.areas.iter().position(
+            |area| area.vpn_range.get_start() == start_vpn && area.vpn_range.get_end() == end_vpn
+        );
+        if let Some(index) = pos {
+            let mut area = self.areas.remove(index);
+            area.unmap(&mut self.page_table);
+            true
+        }else{
+            false
+        }
+    }
     /// Add a new MapArea into this MemorySet.
     /// Assuming that there are no conflicts in the virtual address
     /// space.
@@ -278,6 +291,21 @@ impl MemorySet {
             satp::write(satp);
             asm!("sfence.vma");
         }
+    }
+    /// Check is the va mapped
+    pub fn checked_mapped(&self, start_va: VirtAddr, end_va: VirtAddr) -> bool{
+        let start_vpn = start_va.floor();
+        let end_vpn = end_va.ceil();
+
+        for vpn in VPNRange::new(start_vpn,end_vpn) {
+            let pte = self.translate(vpn);
+            if let Some(pte_) = pte {
+                if pte_.is_valid() {
+                    return true;
+                }
+            }
+        }
+        false
     }
     /// Translate a virtual page number to a page table entry
     pub fn translate(&self, vpn: VirtPageNum) -> Option<PageTableEntry> {

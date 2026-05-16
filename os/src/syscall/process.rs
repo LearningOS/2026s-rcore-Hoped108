@@ -3,13 +3,16 @@
 use alloc::sync::Arc;
 
 use crate::{
+    config::PAGE_SIZE,
     fs::{open_file, OpenFlags},
-    mm::{translated_refmut, translated_str},
+    mm::{translated_byte_buffer, translated_refmut, translated_str, MapPermission, VirtAddr},
     task::{
-        add_task, current_task, current_user_token, exit_current_and_run_next,
-        suspend_current_and_run_next,
+        TaskControlBlock, add_task, current_task, current_user_token, exit_current_and_run_next, suspend_current_and_run_next
     },
+    timer::get_time_us,
 };
+
+static mut LAZY_TIME_US: usize = 0;
 
 #[repr(C)]
 #[derive(Debug)]
@@ -110,7 +113,33 @@ pub fn sys_get_time(_ts: *mut TimeVal, _tz: usize) -> isize {
         "kernel:pid[{}] sys_get_time NOT IMPLEMENTED",
         current_task().unwrap().pid.0
     );
-    -1
+    let us = unsafe {
+        let real_us = get_time_us() + 1000;
+        LAZY_TIME_US = core::cmp::max(LAZY_TIME_US, real_us);
+        LAZY_TIME_US
+    };
+    let token = current_user_token();
+    let buffers = translated_byte_buffer(token, _ts as *const u8, core::mem::size_of::<TimeVal>());
+
+    let timeval = TimeVal {
+        sec: us / 1_000_000,
+        usec: us % 1_000_000,
+    };
+
+    let time_bytes = unsafe {
+        core::slice::from_raw_parts(
+            &timeval as *const TimeVal as *const u8,
+            core::mem::size_of::<TimeVal>(),
+        )
+    };
+
+    let mut offset = 0;
+    for buffer in buffers {
+        let n = buffer.len();
+        buffer.copy_from_slice(&time_bytes[offset..offset + n]);
+        offset += n;
+    }
+    0
 }
 
 /// YOUR JOB: Implement mmap.
@@ -119,7 +148,35 @@ pub fn sys_mmap(_start: usize, _len: usize, _port: usize) -> isize {
         "kernel:pid[{}] sys_mmap NOT IMPLEMENTED",
         current_task().unwrap().pid.0
     );
-    -1
+    if _start % PAGE_SIZE != 0 {
+        return -1;
+    }
+    if _len == 0 {
+        return 0;
+    }
+    let mut permission = MapPermission::U;
+    if _port & 1 != 0 {
+        permission |= MapPermission::R;
+    }
+    if _port & 2 != 0 {
+        permission |= MapPermission::W;
+    }
+    if _port & 4 != 0 {
+        permission |= MapPermission::X;
+    }
+
+    let start_va = VirtAddr::from(_start);
+    let end_va = VirtAddr::from(_start + _len);
+    if let Some(cur_task) = current_task() {
+        let mut inner = cur_task.inner_exclusive_access();
+        if inner.mmap(start_va, end_va, permission) {
+            0
+        } else {
+            -1
+        }
+    } else {
+        -1
+    }
 }
 
 /// YOUR JOB: Implement munmap.
@@ -128,7 +185,25 @@ pub fn sys_munmap(_start: usize, _len: usize) -> isize {
         "kernel:pid[{}] sys_munmap NOT IMPLEMENTED",
         current_task().unwrap().pid.0
     );
-    -1
+    if _start % PAGE_SIZE != 0 {
+        return -1;
+    }
+    if _len == 0 {
+        return 0;
+    }
+
+    let start_va = VirtAddr::from(_start);
+    let end_va = VirtAddr::from(_start + _len);
+    if let Some(cur_task) = current_task() {
+        let mut inner = cur_task.inner_exclusive_access();
+        if inner.munmap(start_va,end_va) {
+            0
+        }else {
+            -1
+        }
+    }else {
+        -1
+    }
 }
 
 /// change data segment size
@@ -148,7 +223,20 @@ pub fn sys_spawn(_path: *const u8) -> isize {
         "kernel:pid[{}] sys_spawn NOT IMPLEMENTED",
         current_task().unwrap().pid.0
     );
-    -1
+    let token = current_user_token();
+    let path = translated_str(token, _path);
+    if let Some(app_inode) = open_file(path.as_str(), OpenFlags::RDONLY) {
+        let all_data = app_inode.read_all();
+        let new_task = Arc::new(TaskControlBlock::new(all_data.as_slice()));
+        let cur = current_task().unwrap();
+        new_task.inner_exclusive_access().parent = Some(Arc::downgrade(&cur));
+        cur.inner_exclusive_access().children.push(new_task.clone());
+        add_task(new_task.clone());
+
+        new_task.pid.0 as isize
+    } else {
+        -1
+    }
 }
 
 // YOUR JOB: Set task priority.
@@ -157,5 +245,14 @@ pub fn sys_set_priority(_prio: isize) -> isize {
         "kernel:pid[{}] sys_set_priority NOT IMPLEMENTED",
         current_task().unwrap().pid.0
     );
-    -1
+    if _prio <= 1{
+        return -1;
+    }
+    if let Some(cur_task) = current_task() {
+        let mut inner = cur_task.inner_exclusive_access();
+        inner.priority = _prio as usize;
+        _prio
+    }else {
+        -1
+    }
 }

@@ -16,6 +16,8 @@ easy-fs-fuse/target/*
 tools/
 pushall.sh
 *.bak
+AGENTS.md
+
 ci-user/
 user/
 os/vendor/
