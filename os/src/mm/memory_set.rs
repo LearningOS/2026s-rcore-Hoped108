@@ -254,6 +254,18 @@ impl MemorySet {
             asm!("sfence.vma");
         }
     }
+    /// Check the frame mapped
+    pub fn check_frame_mappe(&self, start_vpn: VirtPageNum, end_vpn: VirtPageNum) -> bool {
+        for vpn in VPNRange::new(start_vpn, end_vpn) {
+            let pte = self.translate(vpn);
+            if let Some(pte_) = pte {
+                if pte_.is_valid() {
+                    return true;
+                }
+            }
+        }
+        false
+    }
     /// Translate a virtual page number to a page table entry
     pub fn translate(&self, vpn: VirtPageNum) -> Option<PageTableEntry> {
         self.page_table.translate(vpn)
@@ -263,6 +275,27 @@ impl MemorySet {
     pub fn recycle_data_pages(&mut self) {
         self.areas.clear();
     }
+
+    // pub fn mmap(&mut self, start_va: VirtAddr, end_va: VirtAddr, permission: MapPermission) -> bool {
+    //     if !self.check_frame_mappe(start_va.floor(), end_va.ceil()) {
+    //         self.insert_framed_area(start_va, end_va, permission);
+    //         true
+    //     }else {
+    //         false
+    //     }
+    // }
+
+    /// Remove the framed area with start_vpn and end_vpn
+    // pub fn remove_framed_are(&mut self, start_vpn: VirtPageNum, end_vpn: VirtPageNum) -> bool {
+    //     let pos = self.areas.iter().position(|area| area.vpn_range.get_start() == start_vpn && area.vpn_range.get_end() == end_vpn);
+    //     if let Some(index) = pos {
+    //         let mut area = self.areas.remove(index);
+    //         area.unmap(&mut self.page_table);
+    //         true
+    //     }else {
+    //         false
+    //     }
+    // }
 
     /// shrink the area to new_end
     #[allow(unused)]

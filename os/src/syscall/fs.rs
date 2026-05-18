@@ -138,6 +138,15 @@ pub fn sys_linkat(_old_name: *const u8, _new_name: *const u8) -> isize {
         "kernel:pid[{}] sys_linkat NOT IMPLEMENTED",
         current_task().unwrap().process.upgrade().unwrap().getpid()
     );
+    // let token = current_user_token();
+    // let old_name = translated_str(token, _old_name);
+    // let new_name = translated_str(token, _new_name);
+
+    // if link_file(old_file.as_str(), new_name.as_str()) {
+    //     0
+    // }else {
+    //     -1
+    // }
     -1
 }
 
@@ -147,5 +156,13 @@ pub fn sys_unlinkat(_name: *const u8) -> isize {
         "kernel:pid[{}] sys_unlinkat NOT IMPLEMENTED",
         current_task().unwrap().process.upgrade().unwrap().getpid()
     );
+    // let token = current_user_token();
+    // let name = translated_str(token, _name);
+
+    // if unlink_file(name.as_str()) {
+    //     0
+    // }else {
+    //     -1
+    // }
     -1
 }
